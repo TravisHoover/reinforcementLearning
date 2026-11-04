@@ -1,0 +1,4 @@
+{
+  "paths": ["src"],
+  "rules": ["unused-import", "bare-except", "print-call", "mutable-default"]
+}

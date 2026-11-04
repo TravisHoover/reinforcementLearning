@@ -1,0 +1,51 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrAuth",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrPushCoreApi",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "arn:aws:ecr:us-east-1:123456789012:repository/core-api"
+    },
+    {
+      "Sid": "EcsTaskDefinitions",
+      "Effect": "Allow",
+      "Action": ["ecs:RegisterTaskDefinition", "ecs:DescribeTaskDefinition"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcsRollCoreApi",
+      "Effect": "Allow",
+      "Action": ["ecs:UpdateService", "ecs:DescribeServices"],
+      "Resource": "arn:aws:ecs:us-east-1:123456789012:service/prod/core-api"
+    },
+    {
+      "Sid": "PassCoreApiRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::123456789012:role/core-api-task",
+        "arn:aws:iam::123456789012:role/core-api-execution"
+      ]
+    },
+    {
+      "Sid": "CoreApiLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:us-east-1:123456789012:log-group:/ecs/core-api:*"
+    }
+  ]
+}

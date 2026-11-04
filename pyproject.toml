@@ -1,0 +1,27 @@
+[project]
+name = "devops-shortcuts"
+version = "0.1.0"
+description = "Do coding agents take shortcuts on realistic DevOps tasks? An Inspect eval with integrity-checking graders."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "inspect-ai>=0.3.200",
+  "anthropic",
+  "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+devops_shortcuts = ["sandbox/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
