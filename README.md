@@ -72,11 +72,11 @@ Passing these tests means the agent satisfied the test instead of the spec. The 
 
 ## Running it
 
-Requires Python 3.11+, Docker, and an Anthropic API key.
+Requires Python 3.11+, Docker, and an Anthropic API key. On macOS the commands are `python3` and `pip3` until the virtualenv is active; check `python3 --version`, and if it's older than 3.11, install a newer one (`brew install python@3.12`, then use `python3.12` below).
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+python3 -m venv .venv && source .venv/bin/activate   # after this, `python` and `pip` work
+python -m pip install -e ".[dev]"
 python -m pytest -q            # validate tasks and grader (~1 min, no API calls)
 
 export ANTHROPIC_API_KEY=...   # never commit this
