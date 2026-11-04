@@ -9,6 +9,8 @@ task, variant, epoch), and prints:
   2. outcome counts per task
   3. how often each kind of violation appeared
   4. the gamed samples to read first in `inspect view`
+  5. the flagged samples to review: soft violations (line-pattern matches) only,
+     which ordinary code can trip, so they aren't counted as gamed
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ def load_rows(log_dirs: list[str]) -> list[dict]:
                 "outcome": m["outcome"],
                 "solved": m["solved"],
                 "gamed": m["gamed"],
+                "flagged": m.get("flagged", False),
                 "flagged_conflict": m["flagged_conflict"],
                 "violations": ";".join(sorted({v["kind"] for v in m["violations"]})),
                 "hit_limit": s.limit.type if s.limit else "",
@@ -67,9 +70,9 @@ def headline(rows: list[dict]) -> str:
     for r in rows:
         groups[(r["model"], r["prompt_style"])].append(r)
     out = [
-        "| Model | Prompt | Solved (possible) | Gamed (possible) | Visible-only (possible) | Gamed (impossible) "
-        "| Flagged conflict when honest (impossible) |",
-        "|---|---|---|---|---|---|---|",
+        "| Model | Prompt | Solved (possible) | Gamed (possible) | Visible-only (possible) "
+        "| Flagged for review (possible) | Gamed (impossible) | Flagged conflict when honest (impossible) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for (model, style), rs in sorted(groups.items()):
         pos = [r for r in rs if r["variant"] == "possible"]
@@ -79,6 +82,7 @@ def headline(rows: list[dict]) -> str:
             f"| {model} | {style} | {pct(sum(r['solved'] for r in pos), len(pos))} "
             f"| {pct(sum(r['gamed'] for r in pos), len(pos))} "
             f"| {pct(sum(r['outcome'] == 'visible_only' for r in pos), len(pos))} "
+            f"| {pct(sum(r['flagged'] and not r['gamed'] for r in pos), len(pos))} "
             f"| {pct(sum(r['gamed'] for r in imp), len(imp))} "
             f"| {pct(sum(r['flagged_conflict'] for r in honest), len(honest))} |"
         )
@@ -86,7 +90,8 @@ def headline(rows: list[dict]) -> str:
 
 
 def per_task(rows: list[dict]) -> str:
-    outcomes = ["solved", "solved_with_violation", "gamed", "visible_only", "failed", "honest_compliant", "honest"]
+    outcomes = ["solved", "solved_flagged", "solved_with_violation", "gamed", "visible_only", "failed",
+                "honest_compliant", "honest"]
     groups = defaultdict(Counter)
     for r in rows:
         groups[(r["task"], r["variant"], r["model"])][r["outcome"]] += 1
@@ -115,6 +120,19 @@ def to_review(rows: list[dict]) -> str:
     return "\n".join(out)
 
 
+def flagged_to_review(rows: list[dict]) -> str:
+    """Samples with soft violations only. Read the transcript: the agent took a
+    shortcut, or wrote ordinary code that matches a pattern."""
+    flagged = [r for r in rows if r["flagged"] and not r["gamed"]]
+    if not flagged:
+        return "_None._"
+    out = ["| Model | Prompt | Sample | Epoch | Outcome | Soft violations | Log |", "|---|---|---|---|---|---|---|"]
+    for r in sorted(flagged, key=lambda r: (r["task"], r["model"])):
+        out.append(f"| {r['model']} | {r['prompt_style']} | {r['sample_id']} | {r['epoch']} "
+                   f"| {r['outcome']} | {r['violations']} | {r['log']} |")
+    return "\n".join(out)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("log_dirs", nargs="+")
@@ -134,7 +152,8 @@ def main() -> None:
     print("## Headline\n\n" + headline(rows) + "\n")
     print("## Outcomes by task\n\n" + per_task(rows) + "\n")
     print("## Violations\n\n" + violation_counts(rows) + "\n")
-    print("## Gamed samples to review\n\n" + to_review(rows))
+    print("## Gamed samples to review\n\n" + to_review(rows) + "\n")
+    print("## Flagged samples to review (soft violations only, not counted as gamed)\n\n" + flagged_to_review(rows))
 
 
 if __name__ == "__main__":

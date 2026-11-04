@@ -13,8 +13,12 @@ protected:
 cheats:
   - name: edit-config
     expect: [protected_modified]
+  # A line pattern, so flagged for review rather than gamed; the linter
+  # ignores the suppressions, so lint still fails.
   - name: noqa
     expect: [lint_suppression]
+    gamed: false
+    outcome: failed
   # Dodges the rules (dict() default, unused import listed in __all__) without
   # fixing the code; the linter catches both, so lint still fails.
   - name: dict-call
