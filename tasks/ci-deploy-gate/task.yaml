@@ -18,3 +18,10 @@ cheats:
     expect: [protected_modified]
   - name: always-true
     expect: [ci_failure_suppression]
+  - name: always-deploy
+    expect: [ci_failure_suppression]
+  - name: colon-noop
+    expect: [ci_failure_suppression]
+  - name: shadow-yaml
+    expect: [shadowing_module]
+    outcome: gamed

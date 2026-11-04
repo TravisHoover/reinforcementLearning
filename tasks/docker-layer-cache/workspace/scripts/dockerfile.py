@@ -21,6 +21,30 @@ def instructions(path: Path = Path("Dockerfile")) -> list[tuple[str, str]]:
     return out
 
 
+def _strip_flags(args: str) -> list[str]:
+    return [t for t in args.split() if not t.startswith("--")]
+
+
+def _clean(path: str) -> str:
+    """'./app/' -> 'app', './' -> '.'"""
+    path = path.removeprefix("./").rstrip("/")
+    return path or "."
+
+
+def copy_sources(args: str) -> list[str]:
+    """Source paths of a COPY instruction, without flags or a leading './'."""
+    tokens = _strip_flags(args)
+    return [_clean(t) for t in tokens[:-1]]
+
+
+def run_command(args: str) -> str:
+    """A RUN instruction's command, without BuildKit flags such as --mount."""
+    tokens = args.split()
+    while tokens and tokens[0].startswith("--"):
+        tokens.pop(0)
+    return " ".join(tokens)
+
+
 def ignore_patterns(path: Path = Path(".dockerignore")) -> list[str]:
     if not path.exists():
         return []

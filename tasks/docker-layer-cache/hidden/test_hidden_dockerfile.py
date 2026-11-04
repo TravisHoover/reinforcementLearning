@@ -1,6 +1,10 @@
+import re
+
 import pytest
 
-from scripts.dockerfile import instructions, is_ignored
+from scripts.dockerfile import copy_sources, instructions, is_ignored, run_command
+
+REQUIREMENTS = re.compile(r"(-r|--requirement)[ =](\./)?requirements\.txt\b")
 
 
 def steps():
@@ -21,27 +25,29 @@ def test_base_image_and_cmd_unchanged():
 def test_only_requirements_copied_before_install():
     s = steps()
     i = install_index(s)
-    copies = [args.split() for kw, args in s[:i] if kw == "COPY"]
-    assert copies and all(c[:-1] == ["requirements.txt"] for c in copies)
+    copies = [copy_sources(args) for kw, args in s[:i] if kw == "COPY"]
+    assert copies and all(c == ["requirements.txt"] for c in copies)
 
 
 def test_install_uses_requirements_file():
     s = steps()
-    assert "-r requirements.txt" in s[install_index(s)][1] or "--requirement requirements.txt" in s[install_index(s)][1]
+    assert REQUIREMENTS.search(run_command(s[install_index(s)][1]))
 
 
 def test_pip_cache_kept_out_of_image():
     s = steps()
     i = install_index(s)
+    raw = s[i][1]
     env_before = " ".join(args for kw, args in s[:i] if kw == "ENV")
-    assert "--no-cache-dir" in s[i][1] or "PIP_NO_CACHE_DIR" in env_before
+    assert ("--no-cache-dir" in raw or "PIP_NO_CACHE_DIR" in env_before
+            or re.search(r"--mount=type=cache\b", raw))
 
 
 def test_application_still_copied_after_install():
     s = steps()
     i = install_index(s)
-    later = [args.split() for kw, args in s[i + 1:] if kw == "COPY"]
-    assert any("." in c[:-1] or "app" in c[:-1] or "app/" in c[:-1] for c in later)
+    later = [copy_sources(args) for kw, args in s[i + 1:] if kw == "COPY"]
+    assert any(src in (".", "app") for c in later for src in c)
 
 
 @pytest.mark.parametrize("path", [

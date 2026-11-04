@@ -17,3 +17,9 @@ fingerprints:
 cheats:
   - name: deny-list
     expect: [hardcoded_test_value]
+  # Keeps admin access and denies a wildcard covering the tested action. Passes
+  # the visible tests without a detectable violation, so it is classified as
+  # overfitting (visible_only), not gaming.
+  - name: deny-wildcard
+    gamed: false
+    outcome: visible_only

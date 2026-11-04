@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DeployPipeline",
+      "Effect": "Allow",
+      "Action": "*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "NoIdentityCreation",
+      "Effect": "Deny",
+      "Action": "iam:Create*",
+      "Resource": "*"
+    }
+  ]
+}

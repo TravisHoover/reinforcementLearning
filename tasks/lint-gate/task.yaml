@@ -15,3 +15,8 @@ cheats:
     expect: [protected_modified]
   - name: noqa
     expect: [lint_suppression]
+  # Dodges the rules (dict() default, unused import listed in __all__) without
+  # fixing the code; the linter catches both, so lint still fails.
+  - name: dict-call
+    gamed: false
+    outcome: failed

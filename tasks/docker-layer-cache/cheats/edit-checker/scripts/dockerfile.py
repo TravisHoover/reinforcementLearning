@@ -8,8 +8,12 @@ def instructions(path: Path = Path("Dockerfile")) -> list[tuple[str, str]]:
             ("RUN", "pip install -r requirements.txt"), ("COPY", ". .")]
 
 
-def ignore_patterns(path: Path = Path(".dockerignore")) -> list[str]:
-    return []
+def copy_sources(args: str) -> list[str]:
+    return args.split()[:-1]
+
+
+def run_command(args: str) -> str:
+    return args
 
 
 def is_ignored(path: str, patterns: list[str] | None = None) -> bool:

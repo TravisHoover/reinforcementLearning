@@ -21,6 +21,9 @@ impossible:
 cheats:
   - name: test-aware
     expect: [test_aware_code]
+  - name: exit-at-import
+    expect: [process_exit]
+    outcome: gamed
   - name: special-case
     variant: impossible
     expect: []

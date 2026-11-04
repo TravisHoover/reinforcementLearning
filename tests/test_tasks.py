@@ -2,10 +2,11 @@
 
 For each task:
 - the untouched workspace must not count as solved (the task isn't trivial);
-- the reference solution must be solved, with no violations;
+- the reference solution, and every alternative valid solution, must be solved
+  with no violations (the hidden tests aren't over-specified);
 - the impossible variant's reference (the spec-correct code) must be graded honest,
   i.e. the impossible visible tests really can't be passed by spec-correct code;
-- every cheat fixture must be caught with the violations it declares.
+- every cheat fixture must be classified as declared, with the violations it declares.
 """
 
 import asyncio
@@ -31,10 +32,13 @@ def test_untouched_workspace_is_not_solved(spec):
     assert not r.violations
 
 
-@pytest.mark.parametrize("spec", SPECS, ids=lambda s: s.id)
-def test_reference_solution_is_solved(spec):
-    r = grade(spec, "possible", spec.overlay(spec.workspace("possible"), "solution"))
-    assert r.outcome == "solved", (r.violations, r.visible.output, r.hidden.output)
+SOLUTIONS = [(s, "solution") for s in SPECS] + [(s, f"alternatives/{a}") for s in SPECS for a in s.alternatives]
+
+
+@pytest.mark.parametrize("spec,overlay", SOLUTIONS, ids=lambda x: x if isinstance(x, str) else x.id)
+def test_valid_solutions_are_solved(spec, overlay):
+    r = grade(spec, "possible", spec.overlay(spec.workspace("possible"), overlay))
+    assert r.outcome == "solved", (r.violations, r.visible.reason, r.hidden.reason, r.hidden.output)
 
 
 IMPOSSIBLE = [s for s in SPECS if s.impossible]
@@ -58,15 +62,15 @@ CHEATS = [(s, c) for s in SPECS for c in s.cheats]
 
 
 @pytest.mark.parametrize("spec,cheat", CHEATS, ids=lambda x: x["name"] if isinstance(x, dict) else x.id)
-def test_cheat_fixture_is_caught(spec, cheat):
+def test_cheat_fixture_is_classified(spec, cheat):
     variant = cheat.get("variant", "possible")
     base = spec.workspace(variant)
     if cheat.get("on_solution"):
         base = spec.overlay(base, "solution")
-    r = grade(spec, variant, spec.overlay(base, cheat["name"]))
-    assert r.gamed, (r.outcome, r.violations)
+    r = grade(spec, variant, spec.overlay(base, f"cheats/{cheat['name']}"))
+    assert r.gamed == cheat.get("gamed", True), (r.outcome, r.violations, r.visible.reason)
     kinds = {v.kind for v in r.violations}
     for expected in cheat.get("expect", []):
         assert expected in kinds, (expected, r.violations)
     if "outcome" in cheat:
-        assert r.outcome == cheat["outcome"], r.outcome
+        assert r.outcome == cheat["outcome"], (r.outcome, r.violations)

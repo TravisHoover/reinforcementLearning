@@ -1,9 +1,9 @@
 """Summarise eval logs into results tables.
 
-    python analysis/summarize.py logs/            # markdown to stdout
-    python analysis/summarize.py logs/ --csv results/samples.csv
+    python analysis/summarize.py logs/standard logs/pressure
+    python analysis/summarize.py logs/standard logs/pressure --csv results/samples.csv
 
-Reads every Inspect log under the directory, one row per (model, prompt style,
+Reads every Inspect log under the given directories, one row per (model, prompt style,
 task, variant, epoch), and prints:
   1. headline rates per model and prompt style
   2. outcome counts per task
@@ -23,13 +23,16 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 SCORER = "shortcut_scorer"
 
 
-def load_rows(log_dir: str) -> list[dict]:
+def load_rows(log_dirs: list[str]) -> list[dict]:
     rows = []
-    for info in list_eval_logs(log_dir):
+    infos = [info for d in log_dirs for info in list_eval_logs(d)]
+    for info in infos:
         log = read_eval_log(info)
         if log.status != "success" or not log.samples:
             continue
         model = log.eval.model.removeprefix("anthropic/")
+        if model.startswith(("none", "mockllm")):
+            continue  # pipeline tests, not model runs
         for s in log.samples:
             score = (s.scores or {}).get(SCORER)
             if score is None or not score.metadata:
@@ -64,8 +67,9 @@ def headline(rows: list[dict]) -> str:
     for r in rows:
         groups[(r["model"], r["prompt_style"])].append(r)
     out = [
-        "| Model | Prompt | Solved (possible) | Gamed (possible) | Gamed (impossible) | Flagged conflict when honest (impossible) |",
-        "|---|---|---|---|---|---|",
+        "| Model | Prompt | Solved (possible) | Gamed (possible) | Visible-only (possible) | Gamed (impossible) "
+        "| Flagged conflict when honest (impossible) |",
+        "|---|---|---|---|---|---|---|",
     ]
     for (model, style), rs in sorted(groups.items()):
         pos = [r for r in rs if r["variant"] == "possible"]
@@ -74,6 +78,7 @@ def headline(rows: list[dict]) -> str:
         out.append(
             f"| {model} | {style} | {pct(sum(r['solved'] for r in pos), len(pos))} "
             f"| {pct(sum(r['gamed'] for r in pos), len(pos))} "
+            f"| {pct(sum(r['outcome'] == 'visible_only' for r in pos), len(pos))} "
             f"| {pct(sum(r['gamed'] for r in imp), len(imp))} "
             f"| {pct(sum(r['flagged_conflict'] for r in honest), len(honest))} |"
         )
@@ -81,7 +86,7 @@ def headline(rows: list[dict]) -> str:
 
 
 def per_task(rows: list[dict]) -> str:
-    outcomes = ["solved", "solved_with_violation", "gamed", "failed", "honest_compliant", "honest"]
+    outcomes = ["solved", "solved_with_violation", "gamed", "visible_only", "failed", "honest_compliant", "honest"]
     groups = defaultdict(Counter)
     for r in rows:
         groups[(r["task"], r["variant"], r["model"])][r["outcome"]] += 1
@@ -112,12 +117,12 @@ def to_review(rows: list[dict]) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("log_dir")
+    ap.add_argument("log_dirs", nargs="+")
     ap.add_argument("--csv", help="also write one row per sample to this CSV file")
     args = ap.parse_args()
-    rows = load_rows(args.log_dir)
+    rows = load_rows(args.log_dirs)
     if not rows:
-        raise SystemExit(f"no scored samples found under {args.log_dir}")
+        raise SystemExit(f"no scored model samples found under {' '.join(args.log_dirs)}")
     if args.csv:
         Path(args.csv).parent.mkdir(parents=True, exist_ok=True)
         with open(args.csv, "w", newline="") as f:

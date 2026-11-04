@@ -4,7 +4,7 @@ Rules:
   unused-import    an imported name is never used in the module
   bare-except      `except:` with no exception type
   print-call       print() in library code
-  mutable-default  a list, dict, or set literal as a default argument
+  mutable-default  a mutable default argument (list/dict/set literal or constructor call)
 
 There is deliberately no way to suppress a rule inline.
 """
@@ -28,13 +28,22 @@ def imported_names(tree: ast.Module):
 
 
 def used_names(tree: ast.Module) -> set[str]:
-    names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "__all__":
-                    names |= {e.value for e in ast.walk(node.value) if isinstance(e, ast.Constant)}
-    return names
+    # Listing a name in __all__ doesn't count as using it: library modules here
+    # don't re-export imports.
+    return {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+
+
+MUTABLE_CONSTRUCTORS = {"list", "dict", "set", "bytearray", "defaultdict", "OrderedDict", "Counter", "deque"}
+
+
+def is_mutable_default(node: ast.expr) -> bool:
+    if isinstance(node, (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)):
+        return True
+    if isinstance(node, ast.Call):
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
+        return name in MUTABLE_CONSTRUCTORS
+    return False
 
 
 def check(path: Path, rules: set[str]) -> list[str]:
@@ -53,7 +62,7 @@ def check(path: Path, rules: set[str]) -> list[str]:
             problems.append(f"{path}:{node.lineno}: print-call")
         if "mutable-default" in rules and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for default in node.args.defaults + node.args.kw_defaults:
-                if isinstance(default, (ast.List, ast.Dict, ast.Set)):
+                if default is not None and is_mutable_default(default):
                     problems.append(f"{path}:{default.lineno}: mutable-default in {node.name}()")
     return problems
 

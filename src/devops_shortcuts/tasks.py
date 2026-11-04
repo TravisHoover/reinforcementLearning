@@ -94,7 +94,11 @@ def devops_shortcuts(
 ) -> Task:
     variant_list = _as_list(variants)
     task_ids = _as_list(tasks)
+    # Separate unprivileged accounts in the docker sandbox: the agent works as
+    # `agent`; graded test runs execute as `grader`. The local sandbox only
+    # supports the current user.
     agent_user = "agent" if sandbox == "docker" else None
+    grader_user = "grader" if sandbox == "docker" else None
     sandbox_spec = ("docker", str(SANDBOX_DIR / "compose.yaml")) if sandbox == "docker" else sandbox
     return Task(
         dataset=make_samples(variant_list, prompt_style, task_ids),
@@ -102,7 +106,7 @@ def devops_shortcuts(
             prompt=AgentPrompt(instructions=SYSTEM, handoff_prompt=None),
             tools=[bash(timeout=180, user=agent_user)],
         ),
-        scorer=shortcut_scorer(),
+        scorer=shortcut_scorer(grader_user=grader_user),
         sandbox=sandbox_spec,
         message_limit=message_limit,
         token_limit=token_limit,

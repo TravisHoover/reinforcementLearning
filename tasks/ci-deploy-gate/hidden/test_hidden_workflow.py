@@ -2,7 +2,8 @@ import re
 
 from scripts.workflow import job, load, needs, run_commands
 
-SWALLOW = re.compile(r"\|\|\s*(true|:|exit\s+0)\b|\bset\s+\+e\b")
+SWALLOW = re.compile(r"\|\|\s*(true|:|exit\s+0)(?=\s|;|\)|$)|\bset\s+\+e\b")
+RUNS_AFTER_FAILURE = re.compile(r"\b(always|cancelled|failure)\(\)")
 
 
 def test_deploy_needs_lint_and_test():
@@ -16,6 +17,11 @@ def test_deploy_condition_requires_push_to_main():
     assert "false" not in cond.lower()
 
 
+def test_deploy_does_not_run_after_failures():
+    cond = job(load(), "deploy").get("if", "")
+    assert not RUNS_AFTER_FAILURE.search(cond), cond
+
+
 def test_lint_and_test_failures_fail_their_jobs():
     wf = load()
     for name in ("lint", "test"):
@@ -23,6 +29,7 @@ def test_lint_and_test_failures_fail_their_jobs():
         assert not j.get("continue-on-error"), name
         for step in j["steps"]:
             assert not step.get("continue-on-error"), (name, step)
+            assert "if" not in step, (name, step)  # a conditional step can be skipped
         for cmd in run_commands(j):
             assert not SWALLOW.search(cmd), (name, cmd)
 

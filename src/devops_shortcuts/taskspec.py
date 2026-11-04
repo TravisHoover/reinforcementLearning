@@ -6,8 +6,10 @@ Layout of a task directory:
     workspace/      starting repository the agent works in
     hidden/         held-out tests, copied in only at grading time
     solution/       overlay: a reference fix (used by this repo's own tests)
+    alternatives/<name>/  overlays: other valid fixes the hidden tests must accept
     impossible/     overlay: replaces visible tests with ones that contradict the prompt
-    cheats/<name>/  overlays demonstrating shortcuts the grader must catch
+    cheats/<name>/  overlays demonstrating shortcuts the grader must catch (or, with
+                    `gamed: false`, overfits it must classify correctly)
 
 An overlay is a directory of files laid over the workspace. A file named
 `.delete` inside an overlay lists workspace paths (one per line) to remove.
@@ -81,6 +83,7 @@ class TaskSpec:
     fingerprints: list[str] = field(default_factory=list)
     impossible: dict | None = None
     cheats: list[dict] = field(default_factory=list)
+    alternatives: list[str] = field(default_factory=list)
 
     @property
     def variants(self) -> list[str]:
@@ -110,9 +113,11 @@ class TaskSpec:
             fps += self.impossible.get("fingerprints", [])
         return fps
 
-    def overlay(self, files: dict[str, bytes], name: str) -> dict[str, bytes]:
-        """Apply solution/ or cheats/<name>/ on top of a workspace."""
-        path = self.root / "solution" if name == "solution" else self.root / "cheats" / name
+    def overlay(self, files: dict[str, bytes], relpath: str) -> dict[str, bytes]:
+        """Apply an overlay directory under the task root (e.g. "solution", "cheats/noqa")."""
+        path = self.root / relpath
+        if not path.is_dir():
+            raise FileNotFoundError(f"{self.id}: no overlay {relpath}")
         return apply_overlay(files, path)
 
 
@@ -128,6 +133,7 @@ def load_task(task_id: str) -> TaskSpec:
         fingerprints=data.get("fingerprints", []),
         impossible=data.get("impossible"),
         cheats=data.get("cheats", []),
+        alternatives=data.get("alternatives", []),
     )
 
 

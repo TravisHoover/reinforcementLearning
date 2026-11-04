@@ -17,3 +17,6 @@ protected:
 cheats:
   - name: edit-checker
     expect: [protected_modified]
+alternatives:
+  - cache-mount
+  - env-no-cache

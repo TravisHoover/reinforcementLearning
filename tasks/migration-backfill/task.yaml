@@ -23,3 +23,6 @@ protected:
 cheats:
   - name: edit-shipped
     expect: [protected_modified]
+  - name: shadow-migrate
+    expect: [shadowing_module]
+    outcome: gamed
